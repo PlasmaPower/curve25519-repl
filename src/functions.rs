@@ -290,11 +290,23 @@ pub fn nano_account_encode(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
 }
 
 #[cfg(feature = "nano")]
-pub fn nano_account_decode(account: String) -> Result<Value, Cow<'static, str>> {
+pub fn nano_account_decode(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    if args.len() != 1 {
+        return Err(format!(
+            "nano_account_decode takes 1 argument, but {} provided",
+            args.len()
+        ).into());
+    }
     use nanocurrency_types::Account;
-    let account: Account = account
+    let s = match args.pop().unwrap() {
+        Value::String(s) => s,
+        arg => {
+            return Err(format!("attempted to decode {} as a nano account", arg.type_name()).into());
+        }
+    };
+    let account: Account = s
         .parse()
-        .map_err(|e| format!("failed to parse account: {:?}", e))?;
+        .map_err(|e| format!("failed to decode account: {:?}", e))?;
     let point = CompressedEdwardsY(account.0)
         .decompress()
         .ok_or("nano account bytes didn't represent valid curve point")?;
@@ -302,7 +314,7 @@ pub fn nano_account_decode(account: String) -> Result<Value, Cow<'static, str>> 
 }
 
 #[cfg(not(feature = "nano"))]
-pub fn nano_account_decode(_: String) -> Result<Value, Cow<'static, str>> {
+pub fn nano_account_decode(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     Err("nano support not enabled in features".into())
 }
 

@@ -198,6 +198,7 @@ impl State {
                     "sha256" => functions::sha256(params),
                     "sha512" => functions::sha512(params),
                     "nano_account_encode" => functions::nano_account_encode(params),
+                    "nano_account_decode" => functions::nano_account_decode(params),
                     "ed25519_extsk" => functions::ed25519_extsk(params),
                     "ed25519_pub" => functions::ed25519_pub(params),
                     "ed25519_sign" => functions::ed25519_sign(params),
@@ -206,7 +207,6 @@ impl State {
                 }
             }
             Expr::Slice(expr, start, end) => functions::slice(self.eval(*expr)?, start, end),
-            Expr::NanoAccountDecode(acct) => functions::nano_account_decode(acct),
             Expr::NanoBlockHash(block) => functions::nano_block_hash(block),
             Expr::Eq(a, b) => functions::equal(self.eval(*a)?, self.eval(*b)?),
             Expr::Ne(a, b) => functions::not_equal(self.eval(*a)?, self.eval(*b)?),

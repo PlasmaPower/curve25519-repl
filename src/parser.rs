@@ -33,7 +33,6 @@ pub enum Expr {
     Eq(Box<Expr>, Box<Expr>),
     Ne(Box<Expr>, Box<Expr>),
     // "Macros"
-    NanoAccountDecode(String),
     NanoBlockHash(NanoBlock),
 }
 
@@ -74,17 +73,6 @@ where
 {
     look_ahead(parser::char::letter())
         .then(|_| many1(parser::char::alpha_num().or(parser::char::char('_'))))
-}
-
-fn nano_account<I>() -> impl Parser<Input = I, Output = String>
-where
-    I: Stream<Item = char, Error = easy::ParseError<I>>,
-{
-    (
-        parser::char::string("xrb_").or(parser::char::string("nano_")),
-        parser::repeat::count_min_max::<String, _>(60, 60, parser::char::alpha_num()),
-    )
-        .map(|x| x.0.to_string() + &x.1)
 }
 
 struct StreamReadOne<'a, S: Stream<Item = char, Error = easy::ParseError<S>> + 'a>(
@@ -237,8 +225,6 @@ parser! {
             })),
             (attempt(parser::char::string("0x")), hex()).map(|x| Expr::Bytes(x.1)),
             attempt(from_str()).map(Expr::Number),
-            (attempt(parser::char::string("nano_account_decode!(")), nano_account(), lex_char(')'))
-                .map(|x| Expr::NanoAccountDecode(x.1)),
             (attempt(parser::char::string("nano_block_hash!(")), nano_block(), lex_char(')'))
                 .map(|x| Expr::NanoBlockHash(x.1)),
             attempt((ident(), lex_char('('), sep_by(expression().map(Box::new), lex_char(',')), lex_char(')'))

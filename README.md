@@ -62,6 +62,13 @@ Produces a 64 byte output.
 Encodes the given curve point as a nano account.
 Requires the nano feature.
 
+### nano_account_decode
+
+`nano_account_decode(account: string) -> point`
+
+Decodes a nano account to a curve point.
+Requires the nano feature.
+
 ### ed25519_extsk
 
 `ed25519_extsk(skey: bytes, hasher?: "sha2" | "sha512" | "blake2b") -> bytes`
@@ -92,13 +99,6 @@ Returns 64 bytes.
 Checks if an ed25519 signature is valid.
 The default hasher is sha2.
 Returns true if the signature is valid, and false otherwise.
-
-### nano_account_decode!
-
-`nano_account_decode!(xrb_...) -> point`
-
-Decodes a nano account.
-Requires the nano feature.
 
 ### nano_block_hash!
 
