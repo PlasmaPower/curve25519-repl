@@ -25,6 +25,7 @@ fn with_bytes<R, F: FnOnce(Cow<'_, [u8]>) -> R>(
         Value::Scalar(s) => Ok(f(Cow::Borrowed(s.as_bytes()))),
         Value::Point(p) => Ok(f(Cow::Borrowed(p.compress().as_bytes()))),
         Value::Bytes(b) => Ok(f(Cow::Owned(b))),
+        Value::String(b) => Ok(f(Cow::Owned(b.into_bytes()))),
         arg => Err(format!("tried to convert {} into bytes", arg.type_name()).into()),
     }
 }
@@ -501,10 +502,7 @@ pub fn ed25519_sign(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
             val => return Err(format!("{} passed to ed25519_sign as hasher", val).into()),
         }
     }
-    let message = match args.pop().unwrap() {
-        Value::Bytes(bytes) => bytes,
-        val => return Err(format!("{} passed to ed25519_sign as message", val).into()),
-    };
+    let message = with_bytes(args.pop().unwrap(), |b| b.into_owned())?;
     let extsk = match args.pop().unwrap() {
         Value::Bytes(bytes) => ed25519_extsk_inner(&hasher, &bytes, "ed25519_sign")?,
         val => return Err(format!("{} passed to ed25519_sign as secret key", val).into()),
@@ -557,10 +555,7 @@ pub fn ed25519_validate(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>
             signature.len(),
         ).into());
     }
-    let message = match args.pop().unwrap() {
-        Value::Bytes(bytes) => bytes,
-        val => return Err(format!("{} passed to ed25519_validate as message", val).into()),
-    };
+    let message = with_bytes(args.pop().unwrap(), |b| b.into_owned())?;
     let (pkey_bytes, pkey_point) = match args.pop().unwrap() {
         Value::Bytes(bytes) => {
             if bytes.len() != 32 {

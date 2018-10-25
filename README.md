@@ -7,7 +7,7 @@ See examples/sign-nano-block.txt for an example of this in use (requires `--feat
 
 ### bytes
 
-`bytes(in: scalar | point | bytes) -> bytes`
+`bytes(in: scalar | point | string | bytes) -> bytes`
 
 Converts its argument to bytes.
 
@@ -33,7 +33,7 @@ This uses a cryptographically secure RNG.
 
 ### blake2b
 
-`blake2b(message: bytes | scalar | point, out_len?: number) -> bytes`
+`blake2b(message: bytes | scalar | point | string, out_len?: number) -> bytes`
 
 Hashes the message using blake2b.
 Requires the blake2 feature.
@@ -41,7 +41,7 @@ The output length defaults to 32 bytes.
 
 ### sha256
 
-`sha256(message: bytes | scalar | point) -> bytes`
+`sha256(message: bytes | scalar | point | string) -> bytes`
 
 Hashes the message using SHA256.
 Requires the sha2 feature (enabled by default).
@@ -49,7 +49,7 @@ Produces a 32 byte output.
 
 ### sha512
 
-`sha512(message: bytes | scalar | point) -> bytes`
+`sha512(message: bytes | scalar | point | string) -> bytes`
 
 Hashes the message using SHA512.
 Requires the sha2 feature (enabled by default).
@@ -86,7 +86,7 @@ The default hasher is sha2.
 
 ### ed25519_sign
 
-`ed25519_sign(skey: bytes, message: bytes, hasher?: "sha2" | "sha512" | "blake2b") -> point`
+`ed25519_sign(skey: bytes, message: bytes | scalar | point | string, hasher?: "sha2" | "sha512" | "blake2b") -> point`
 
 Signs a message with the given ed25519 secret key.
 The default hasher is sha2.
@@ -94,7 +94,7 @@ Returns 64 bytes.
 
 ### ed25519_verify
 
-`ed25519_verify(pkey: point | bytes, message: bytes, signature: bytes, hasher?: "sha2" | "sha512" | "blake2b") -> bool`
+`ed25519_verify(pkey: point | bytes, message: bytes | scalar | point | string, signature: bytes, hasher?: "sha2" | "sha512" | "blake2b") -> bool`
 
 Checks if an ed25519 signature is valid.
 The default hasher is sha2.
