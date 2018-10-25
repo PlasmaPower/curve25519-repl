@@ -1,7 +1,7 @@
 # curve25519 REPL
 
 A REPL built for working with curve25519.
-See examples/sign-nano-block.txt for an example of this in use (requires `--features nano`).
+See examples/nano/sign-block.txt for an example of this in use (requires `--features nano`).
 
 ## Functions:
 
