@@ -4,6 +4,7 @@ use serde::de::Deserialize;
 use serde_json;
 use std::collections::VecDeque;
 use std::io;
+use std::sync::Arc;
 
 #[cfg(feature = "nano")]
 type NanoBlock = ::nanocurrency_types::BlockInner;
@@ -160,7 +161,7 @@ where
 }
 
 parser! {
-    fn expression_[I](pemdas_level: u16)(I) -> Expr
+    fn continue_expression[I](pemdas_level: u16, lhs: Expr)(I) -> Expr
         where [
             I: Stream<Item = char, Error = easy::ParseError<I>>,
             I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = easy::Error<I::Item, I::Range>>,
@@ -178,51 +179,74 @@ parser! {
                 Ok(((), error::Consumed::Empty(())))
             }
         });
+        let lhs = Arc::new(lhs);
+        let lhs1 = lhs.clone();
+        let lhs2 = lhs.clone();
+        let lhs3 = lhs.clone();
+        let lhs4 = lhs.clone();
         let ch = choice!(
-            attempt(require_pemdas(110).then(move |_|
-                (expression_(100), choice!(parser::char::string("=="), parser::char::string("!=")), expression_(110))
+            require_pemdas(110).then(move |_|
+                (choice!(parser::char::string("=="), parser::char::string("!=")), expression_(100))
             ).map(move |x| {
-                if x.1 == "==" {
-                    Expr::Eq(Box::new(x.0.clone()), Box::new(x.2))
-                } else if x.1 == "!=" {
-                    Expr::Ne(Box::new(x.0.clone()), Box::new(x.2))
+                if x.0 == "==" {
+                    Expr::Eq(Box::new((*lhs1).clone()), Box::new(x.1))
+                } else if x.0 == "!=" {
+                    Expr::Ne(Box::new((*lhs1).clone()), Box::new(x.1))
                 } else {
                     unreachable!()
                 }
-            })),
-            attempt(require_pemdas(100).then(move |_|
-                (expression_(90), choice!(lex_char('+'), lex_char('-')), expression_(100))
+            }),
+            require_pemdas(100).then(move |_|
+                (choice!(lex_char('+'), lex_char('-')), expression_(90))
             ).map(move |x| {
-                if x.1 == '+' {
-                    Expr::Add(Box::new(x.0.clone()), Box::new(x.2))
-                } else if x.1 == '-' {
-                    Expr::Sub(Box::new(x.0.clone()), Box::new(x.2))
+                if x.0 == '+' {
+                    Expr::Add(Box::new((*lhs2).clone()), Box::new(x.1))
+                } else if x.0 == '-' {
+                    Expr::Sub(Box::new((*lhs2).clone()), Box::new(x.1))
                 } else {
                     unreachable!()
                 }
-            })),
-            attempt(require_pemdas(90).then(move |_|
-                (expression_(80), choice!(lex_char('*'), lex_char('/')), expression_(90))
+            }),
+            require_pemdas(90).then(move |_|
+                (choice!(lex_char('*'), lex_char('/')), expression_(80))
             ).map(move |x| {
-                if x.1 == '*' {
-                    Expr::Mul(Box::new(x.0.clone()), Box::new(x.2))
-                } else if x.1 == '/' {
-                    Expr::Div(Box::new(x.0.clone()), Box::new(x.2))
+                if x.0 == '*' {
+                    Expr::Mul(Box::new((*lhs3).clone()), Box::new(x.1))
+                } else if x.0 == '/' {
+                    Expr::Div(Box::new((*lhs3).clone()), Box::new(x.1))
                 } else {
                     unreachable!()
                 }
-            })),
-            attempt(require_pemdas(80).then(move |_|
-                (expression_(70), many1::<Vec<_>, _>(
-                    (lex_char('['), optional(from_str::<_, usize>()), lex_char(':'), optional(from_str::<_, usize>()), lex_char(']')))
+            }),
+            require_pemdas(80).then(move |_|
+                many1::<Vec<_>, _>(
+                    (lex_char('['), optional(from_str::<_, usize>()), lex_char(':'),
+                        optional(from_str::<_, usize>()), lex_char(']'))
                 )
             ).map(move |x| {
-                let mut expr = x.0;
-                for slice in x.1 {
+                let mut expr = (*lhs4).clone();
+                for slice in x {
                     expr = Expr::Slice(Box::new(expr), slice.1, slice.3);
                 }
                 expr
-            })),
+            })
+        );
+        (skip_whitespace(), ch, skip_whitespace())
+            .map(|x| x.1)
+            .then(move |x| continue_expression(pemdas_level, x.clone()).or(parser::item::value(x)))
+    }
+}
+
+parser! {
+    fn expression_[I](pemdas_level: u16)(I) -> Expr
+        where [
+            I: Stream<Item = char, Error = easy::ParseError<I>>,
+            I::Error: ParseError<I::Item, I::Range, I::Position, StreamError = easy::Error<I::Item, I::Range>>,
+            I::Position: Default,
+            stream::StreamErrorFor<I>: ToString,
+        ]
+    {
+        let ch = choice!(
             (attempt(parser::char::string("0x")), hex()).map(|x| Expr::Bytes(x.1)),
             attempt(from_str()).map(Expr::Number),
             (attempt(parser::char::string("nano_block_hash!(")), nano_block(), lex_char(')'))
@@ -235,7 +259,10 @@ parser! {
             attempt(between(lex_char('"'), lex_char('"'), many1(none_of(vec!['"']))).map(Expr::String)),
             attempt((lex_char('-'), expression()).map(|x| Expr::Neg(Box::new(x.1))))
         );
-        (skip_whitespace(), ch, skip_whitespace()).map(|x| x.1)
+        let pemdas_level = *pemdas_level;
+        (skip_whitespace(), ch, skip_whitespace()).then(move |x|
+            continue_expression(pemdas_level, x.1.clone()).or(parser::item::value(x.1))
+        )
     }
 }
 

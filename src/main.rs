@@ -1,3 +1,5 @@
+#![recursion_limit = "1024"]
+
 #[cfg(feature = "blake2")]
 extern crate blake2;
 extern crate combine;
