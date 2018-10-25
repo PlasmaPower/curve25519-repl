@@ -1,0 +1,41 @@
+> sk = 0x34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4
+0x34f0a37aad20f4a260f0a5b3cb3d7fb50673212263e58a380bc10474bb039ce4
+
+> extsk = ed25519_extsk(sk, "blake2b")
+0xd08820cc8191d4db0641a5550f3e567630a2977583f6a41cfc0439b80520ea7dff03fb3870cd759b651250a90cdd93f2fc002f8343931b4d7f3083db3995747b
+
+> s = scalar(extsk[:32])
+scalar(0x55bd6741c9db53732af7dfe0f8683de42fa2977583f6a41cfc0439b80520ea0d)
+
+> pk = point(s)
+point(0xb0311ea55708d6a53c75cdbf88300259c6d018522fe3d4d0a242e431f9e8b6d0)
+
+> pk == ed25519_pub(sk, "blake2b")
+true
+
+> nano_account_encode(pk)
+"xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo"
+
+> hash = nano_block_hash!({"type":"open","source":"B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0","representative":"xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo","account":"xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo"})
+0x04270d7f11c4b2b472f2854c5a59f2a7e84226ce9ed799de75744bd7d85fc9d9
+
+> r = scalar(blake2b(extsk[32:] + hash))
+scalar(0x9972cb368f922af8a89c74987a84ddba9bc67c6a86ebb23b085244ffa9a12e07)
+
+> R = point(r)
+point(0xecda914373a2f0ca1296475baee40500a7f0a7ad72a5a80c81d7fab7f6c802b2)
+
+> hram = scalar(blake2b(bytes(R) + bytes(pk) + hash))
+scalar(0x79d1a24e95d5afdcce8035fc85eb390736137bd602b4098b0e624cee474e7d05)
+
+> S = r + hram * s
+scalar(0xcc7db50f5dd0fb25b2ef11761fa7344a158dd5a700b21bd47de5bd0f63153a02)
+
+> sig = bytes(R) + bytes(S)
+0xecda914373a2f0ca1296475baee40500a7f0a7ad72a5a80c81d7fab7f6c802b2cc7db50f5dd0fb25b2ef11761fa7344a158dd5a700b21bd47de5bd0f63153a02
+
+> sig == ed25519_sign(sk, hash, "blake2b")
+true
+
+> ed25519_validate(pk, hash, sig, "blake2b")
+true
