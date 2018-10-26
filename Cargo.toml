@@ -2,6 +2,7 @@
 name = "curve25519-repl"
 version = "0.1.0"
 authors = ["Lee Bousfield <ljbousfield@gmail.com>"]
+license = "BSD-2-Clause"
 
 [dependencies]
 hex = "0.3.2"
