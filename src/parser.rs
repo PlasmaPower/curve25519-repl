@@ -21,6 +21,7 @@ pub enum Expr {
     // Misc.
     FuncCall(String, Vec<Box<Expr>>),
     Slice(Box<Expr>, Option<usize>, Option<usize>),
+    Index(Box<Expr>, usize),
     // Variables
     Var(String),
     SetVar(String, Box<Expr>),
@@ -154,7 +155,8 @@ where
                         easy::Error::Message(
                             ("error parsing block json: ".to_string() + &e.to_string()).into(),
                         ),
-                    ).into(),
+                    )
+                    .into(),
                 )
             })
     })
@@ -220,13 +222,21 @@ parser! {
             }),
             require_pemdas(80).then(move |_|
                 many1::<Vec<_>, _>(
-                    (lex_char('['), optional(from_str::<_, usize>()), lex_char(':'),
-                        optional(from_str::<_, usize>()), lex_char(']'))
+                    (lex_char('['), optional(from_str::<_, usize>()), optional((lex_char(':'),
+                        optional(from_str::<_, usize>()))), lex_char(']'))
                 )
             ).map(move |x| {
                 let mut expr = (*lhs4).clone();
-                for slice in x {
-                    expr = Expr::Slice(Box::new(expr), slice.1, slice.3);
+                for parts in x {
+                    if let Some(slice_parts) = parts.2 {
+                        expr = Expr::Slice(Box::new(expr), parts.1, slice_parts.1);
+                    } else {
+                        if let Some(idx) = parts.1 {
+                            expr = Expr::Index(Box::new(expr), idx);
+                        } else {
+                            expr = Expr::Slice(Box::new(expr), None, None);
+                        }
+                    }
                 }
                 expr
             })

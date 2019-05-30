@@ -1,3 +1,5 @@
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as ED25519_BASEPOINT;
+use curve25519_dalek::constants::EIGHT_TORSION;
 use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::scalar::Scalar;
 use functions;
@@ -17,6 +19,7 @@ pub enum Value {
     Bool(bool),
     Scalar(Scalar),
     Point(EdwardsPoint),
+    Array(Vec<Value>),
 }
 
 impl Value {
@@ -28,6 +31,7 @@ impl Value {
             Value::Bool(_) => "a boolean",
             Value::Scalar(_) => "a scalar",
             Value::Point(_) => "a curve point",
+            Value::Array(_) => "an array",
         }
     }
 }
@@ -42,6 +46,16 @@ impl fmt::Display for Value {
             Value::Scalar(ref scalar) => write!(f, "scalar(0x{})", hex::encode(scalar.as_bytes())),
             Value::Point(ref point) => {
                 write!(f, "point(0x{})", hex::encode(point.compress().as_bytes()))
+            }
+            Value::Array(ref arr) => {
+                write!(f, "[")?;
+                for (i, val) in arr.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", val)?;
+                }
+                write!(f, "]")
             }
         }
     }
@@ -87,7 +101,8 @@ impl Sub for Value {
                 "attempted to subtract {} from {}",
                 b.type_name(),
                 a.type_name()
-            ).into()),
+            )
+            .into()),
         }
     }
 }
@@ -122,7 +137,8 @@ impl Mul for Value {
                 "attempted to multiply {} by {}",
                 a.type_name(),
                 b.type_name()
-            ).into()),
+            )
+            .into()),
         }
     }
 }
@@ -173,10 +189,20 @@ pub struct State {
 
 impl State {
     pub fn new() -> Self {
-        State {
+        let mut this = State {
             vars: HashMap::new(),
             rng: OsRng::new().expect("Failed to create OsRng"),
-        }
+        };
+        this.populate_initial_vars();
+        this
+    }
+
+    fn populate_initial_vars(&mut self) {
+        let eight_torsion = EIGHT_TORSION.iter().cloned().map(Value::Point).collect();
+        self.vars
+            .insert("EIGHT_TORSION".into(), Value::Array(eight_torsion));
+        self.vars
+            .insert("ED25519_BASEPOINT".into(), Value::Point(ED25519_BASEPOINT));
     }
 
     pub fn eval(&mut self, expr: Expr) -> Result<Value, Cow<'static, str>> {
@@ -197,6 +223,9 @@ impl State {
                     "blake2b" => functions::blake2b(params),
                     "sha256" => functions::sha256(params),
                     "sha512" => functions::sha512(params),
+                    "keccak256" => functions::keccak256(params),
+                    "sha3_256" => functions::sha3_256(params),
+                    "sha3_512" => functions::sha3_512(params),
                     "nano_account_encode" => functions::nano_account_encode(params),
                     "nano_account_decode" => functions::nano_account_decode(params),
                     "ed25519_extsk" => functions::ed25519_extsk(params),
@@ -207,6 +236,7 @@ impl State {
                 }
             }
             Expr::Slice(expr, start, end) => functions::slice(self.eval(*expr)?, start, end),
+            Expr::Index(expr, idx) => functions::index(self.eval(*expr)?, idx),
             Expr::NanoBlockHash(block) => functions::nano_block_hash(block),
             Expr::Eq(a, b) => functions::equal(self.eval(*a)?, self.eval(*b)?),
             Expr::Ne(a, b) => functions::not_equal(self.eval(*a)?, self.eval(*b)?),

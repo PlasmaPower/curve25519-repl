@@ -137,6 +137,35 @@ pub fn slice(
     }
 }
 
+pub fn index(
+    val: Value,
+    idx: usize,
+) -> Result<Value, Cow<'static, str>> {
+    match val {
+        Value::Bytes(b) => {
+            if idx >= b.len() {
+                return Err(format!(
+                    "attempted to index bytes with length {} with an index of {}",
+                    b.len(),
+                    idx,
+                ).into());
+            }
+            Ok(Value::Number(b[idx] as i64))
+        }
+        Value::Array(a) => {
+            if idx >= a.len() {
+                return Err(format!(
+                    "attempted to index bytes with length {} with an index of {}",
+                    a.len(),
+                    idx,
+                ).into());
+            }
+            Ok(a[idx].clone())
+        }
+        arg => return Err(format!("attempted to slice {}", arg.type_name()).into()),
+    }
+}
+
 pub fn rand<R: CryptoRng + Rng>(
     mut args: Vec<Value>,
     rng: &mut R,
@@ -256,6 +285,39 @@ pub fn sha512(args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
 #[cfg(not(feature = "sha2"))]
 pub fn sha512(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     Err("sha2 support not enabled in features".into())
+}
+
+#[cfg(feature = "sha3")]
+pub fn keccak256(args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    use sha3::Keccak256;
+    fixed_hash::<Keccak256>(args, "keccak256")
+}
+
+#[cfg(not(feature = "sha3"))]
+pub fn keccak256(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("sha3 support not enabled in features".into())
+}
+
+#[cfg(feature = "sha3")]
+pub fn sha3_256(args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    use sha3::Sha3_256;
+    fixed_hash::<Sha3_256>(args, "sha3_256")
+}
+
+#[cfg(not(feature = "sha3"))]
+pub fn sha3_256(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("sha3 support not enabled in features".into())
+}
+
+#[cfg(feature = "sha3")]
+pub fn sha3_512(args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    use sha3::Sha3_512;
+    fixed_hash::<Sha3_512>(args, "sha3_512")
+}
+
+#[cfg(not(feature = "sha3"))]
+pub fn sha3_512(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("sha3 support not enabled in features".into())
 }
 
 #[cfg(feature = "nano")]

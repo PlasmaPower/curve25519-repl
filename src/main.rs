@@ -14,6 +14,8 @@ extern crate serde;
 extern crate serde_json;
 #[cfg(feature = "sha2")]
 extern crate sha2;
+#[cfg(feature = "sha3")]
+extern crate sha3;
 
 mod eval;
 mod functions;
