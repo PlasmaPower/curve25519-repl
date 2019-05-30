@@ -55,6 +55,31 @@ Hashes the message using SHA512.
 Requires the sha2 feature (enabled by default).
 Produces a 64 byte output.
 
+### keccak256
+
+`keccak256(message: bytes | scalar | point | string) -> bytes`
+
+Hashes the message using Keccak256
+(NIST submission without padding changes of SHA3-256).
+Requires the sha3 feature.
+Produces a 32 byte output.
+
+### sha3_256
+
+`sha3_256(message: bytes | scalar | point | string) -> bytes`
+
+Hashes the message using SHA3-256.
+Requires the sha3 feature.
+Produces a 32 byte output.
+
+### sha3_512
+
+`sha3_512(message: bytes | scalar | point | string) -> bytes`
+
+Hashes the message using SHA3-512.
+Requires the sha3 feature.
+Produces a 64 byte output.
+
 ### nano_account_encode
 
 `nano_account_encode(account: point | bytes) -> string`
