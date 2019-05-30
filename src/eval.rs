@@ -203,6 +203,10 @@ impl State {
             .insert("EIGHT_TORSION".into(), Value::Array(eight_torsion));
         self.vars
             .insert("ED25519_BASEPOINT".into(), Value::Point(ED25519_BASEPOINT));
+        self.vars
+            .insert("G".into(), Value::Point(ED25519_BASEPOINT));
+        self.vars
+            .insert("B".into(), Value::Point(ED25519_BASEPOINT));
     }
 
     pub fn eval(&mut self, expr: Expr) -> Result<Value, Cow<'static, str>> {

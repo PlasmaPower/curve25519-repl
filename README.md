@@ -131,3 +131,9 @@ Returns true if the signature is valid, and false otherwise.
 
 Hashes a nano block.
 Requires the nano feature.
+
+## Constants:
+
+- EIGHT_TORSION: The 8-torsion subgroup (an array of 8 curve points).
+- B = G = ED25519_BASEPOINT: The ed25519 basepoint with y coordinate 4/5
+  and positive x coordinate.
