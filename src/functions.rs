@@ -57,7 +57,8 @@ pub fn scalar(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
                 return Err(format!(
                     "tried to convert {} bytes into a scalar (needs 32 or 64 bytes)",
                     b.len()
-                ).into());
+                )
+                .into());
             }
         }
         arg => Err(format!("tried to convert {} into a scalar", arg.type_name()).into()),
@@ -77,7 +78,8 @@ pub fn point(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
                 return Err(format!(
                     "tried to convert {} bytes into a curve point (needs 32 bytes)",
                     b.len()
-                ).into());
+                )
+                .into());
             }
             let mut slice = [0u8; 32];
             slice.copy_from_slice(&b);
@@ -117,14 +119,16 @@ pub fn slice(
                     "attempted to slice bytes with length {} with a start index of {}",
                     b.len(),
                     start,
-                ).into());
+                )
+                .into());
             }
             if end > b.len() {
                 return Err(format!(
                     "attempted to slice bytes with length {} with an end index of {}",
                     b.len(),
                     end,
-                ).into());
+                )
+                .into());
             }
             if start == 0 {
                 b.truncate(end);
@@ -137,10 +141,7 @@ pub fn slice(
     }
 }
 
-pub fn index(
-    val: Value,
-    idx: usize,
-) -> Result<Value, Cow<'static, str>> {
+pub fn index(val: Value, idx: usize) -> Result<Value, Cow<'static, str>> {
     match val {
         Value::Bytes(b) => {
             if idx >= b.len() {
@@ -148,7 +149,8 @@ pub fn index(
                     "attempted to index bytes with length {} with an index of {}",
                     b.len(),
                     idx,
-                ).into());
+                )
+                .into());
             }
             Ok(Value::Number(b[idx] as i64))
         }
@@ -158,7 +160,8 @@ pub fn index(
                     "attempted to index bytes with length {} with an index of {}",
                     a.len(),
                     idx,
-                ).into());
+                )
+                .into());
             }
             Ok(a[idx].clone())
         }
@@ -174,7 +177,8 @@ pub fn rand<R: CryptoRng + Rng>(
         return Err(format!(
             "rand takes a maximum of 1 argument, but {} were provided",
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let len = args
         .pop()
@@ -203,7 +207,8 @@ pub fn equal_inner(a: Value, b: Value) -> Result<bool, Cow<'static, str>> {
             "attempted to check equality of {} and {}",
             a.type_name(),
             b.type_name(),
-        ).into()),
+        )
+        .into()),
     }
 }
 
@@ -225,7 +230,8 @@ fn var_hash<H: VariableOutput + Input>(
             "{} takes 1 or 2 arguments, but {} were provided",
             name,
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let mut out_len = 64;
     if args.len() > 1 {
@@ -247,7 +253,8 @@ fn fixed_hash<H: FixedOutput + Default + Input>(
             "{} takes 1 argument, but {} were provided",
             name,
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let mut hasher = H::default();
     with_bytes(args.pop().unwrap(), |bytes| hasher.input(bytes))?;
@@ -326,7 +333,8 @@ pub fn nano_account_encode(mut args: Vec<Value>) -> Result<Value, Cow<'static, s
         return Err(format!(
             "nano_account_encode takes 1 argument, but {} provided",
             args.len()
-        ).into());
+        )
+        .into());
     }
     use nanocurrency_types::Account;
     let bytes = match args.pop().unwrap() {
@@ -340,7 +348,8 @@ pub fn nano_account_encode(mut args: Vec<Value>) -> Result<Value, Cow<'static, s
         return Err(format!(
             "attempted to encode {} bytes as a nano account",
             bytes.len()
-        ).into());
+        )
+        .into());
     }
     let mut slice = [0u8; 32];
     slice.copy_from_slice(&bytes);
@@ -358,13 +367,16 @@ pub fn nano_account_decode(mut args: Vec<Value>) -> Result<Value, Cow<'static, s
         return Err(format!(
             "nano_account_decode takes 1 argument, but {} provided",
             args.len()
-        ).into());
+        )
+        .into());
     }
     use nanocurrency_types::Account;
     let s = match args.pop().unwrap() {
         Value::String(s) => s,
         arg => {
-            return Err(format!("attempted to decode {} as a nano account", arg.type_name()).into());
+            return Err(
+                format!("attempted to decode {} as a nano account", arg.type_name()).into(),
+            );
         }
     };
     let account: Account = s
@@ -494,7 +506,8 @@ fn ed25519_extsk_inner(
             "{} passed to {} as secret key (needs 32 bytes)",
             bytes.len(),
             name
-        ).into());
+        )
+        .into());
     }
     hash_to_size(hasher, &[bytes], 64).map(|mut hash| {
         hash[0] &= 248;
@@ -509,7 +522,8 @@ pub fn ed25519_extsk(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
         return Err(format!(
             "ed25519_skey takes 1 or 2 arguments, but {} were provided",
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let mut hasher = Cow::Borrowed("sha2");
     if args.len() == 2 {
@@ -531,7 +545,8 @@ pub fn ed25519_pub(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
         return Err(format!(
             "ed25519_pub takes 1 or 2 arguments, but {} were provided",
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let mut hasher = Cow::Borrowed("sha2");
     if args.len() == 2 {
@@ -555,7 +570,8 @@ pub fn ed25519_sign(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
         return Err(format!(
             "ed25519_sign takes 2 or 3 arguments, but {} were provided",
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let mut hasher = Cow::Borrowed("sha2");
     if args.len() == 3 {
@@ -598,7 +614,8 @@ pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> 
         return Err(format!(
             "ed25519_verify takes 3 or 4 arguments, but {} were provided",
             args.len(),
-        ).into());
+        )
+        .into());
     }
     let mut hasher = Cow::Borrowed("sha2");
     if args.len() == 4 {
@@ -615,7 +632,8 @@ pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> 
         return Err(format!(
             "{} bytes passed to ed25519_verify as signature (needs 64 bytes)",
             signature.len(),
-        ).into());
+        )
+        .into());
     }
     let message = with_bytes(args.pop().unwrap(), |b| b.into_owned())?;
     let (pkey_bytes, pkey_point) = match args.pop().unwrap() {
@@ -624,7 +642,8 @@ pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> 
                 return Err(format!(
                     "{} bytes passed to ed25519_verify as public key (needs 32 bytes)",
                     bytes.len(),
-                ).into());
+                )
+                .into());
             }
             let mut slice = [0u8; 32];
             slice.copy_from_slice(&bytes);
