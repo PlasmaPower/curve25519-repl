@@ -235,7 +235,7 @@ impl State {
                     "ed25519_extsk" => functions::ed25519_extsk(params),
                     "ed25519_pub" => functions::ed25519_pub(params),
                     "ed25519_sign" => functions::ed25519_sign(params),
-                    "ed25519_verify" | "ed25519_validate" => functions::ed25519_validate(params),
+                    "ed25519_verify" | "ed25519_validate" => functions::ed25519_verify(params),
                     _ => Err(format!("unknown function name {}", name).into()),
                 }
             }

@@ -593,10 +593,10 @@ pub fn ed25519_sign(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     Ok(Value::Bytes(sig))
 }
 
-pub fn ed25519_validate(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     if args.len() < 3 || args.len() > 4 {
         return Err(format!(
-            "ed25519_validate takes 3 or 4 arguments, but {} were provided",
+            "ed25519_verify takes 3 or 4 arguments, but {} were provided",
             args.len(),
         ).into());
     }
@@ -604,16 +604,16 @@ pub fn ed25519_validate(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>
     if args.len() == 4 {
         match args.pop().unwrap() {
             Value::String(s) => hasher = s.into(),
-            val => return Err(format!("{} passed to ed25519_validate as hasher", val).into()),
+            val => return Err(format!("{} passed to ed25519_verify as hasher", val).into()),
         }
     }
     let signature = match args.pop().unwrap() {
         Value::Bytes(bytes) => bytes,
-        val => return Err(format!("{} passed to ed25519_validate as signature", val).into()),
+        val => return Err(format!("{} passed to ed25519_verify as signature", val).into()),
     };
     if signature.len() != 64 {
         return Err(format!(
-            "{} bytes passed to ed25519_validate as signature (needs 64 bytes)",
+            "{} bytes passed to ed25519_verify as signature (needs 64 bytes)",
             signature.len(),
         ).into());
     }
@@ -622,7 +622,7 @@ pub fn ed25519_validate(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>
         Value::Bytes(bytes) => {
             if bytes.len() != 32 {
                 return Err(format!(
-                    "{} bytes passed to ed25519_validate as public key (needs 32 bytes)",
+                    "{} bytes passed to ed25519_verify as public key (needs 32 bytes)",
                     bytes.len(),
                 ).into());
             }
@@ -630,11 +630,11 @@ pub fn ed25519_validate(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>
             slice.copy_from_slice(&bytes);
             let point = CompressedEdwardsY(slice)
                 .decompress()
-                .ok_or("invalid curve point passed to ed25519_validate as public key")?;
+                .ok_or("invalid curve point passed to ed25519_verify as public key")?;
             (slice, point)
         }
         Value::Point(point) => (point.compress().to_bytes(), point),
-        val => return Err(format!("{} passed to ed25519_validate as public key", val).into()),
+        val => return Err(format!("{} passed to ed25519_verify as public key", val).into()),
     };
     let mut s_value_bytes = [0u8; 32];
     s_value_bytes.copy_from_slice(&signature[32..]);
