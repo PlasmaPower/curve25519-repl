@@ -117,7 +117,7 @@ Signs a message with the given ed25519 secret key.
 The default hasher is sha2.
 Returns 64 bytes.
 
-### ed25519_verify
+### ed25519_verify AKA ed25519_validate
 
 `ed25519_verify(pkey: point | bytes, message: bytes | scalar | point | string, signature: bytes, hasher?: "sha2" | "sha512" | "blake2b") -> bool`
 
