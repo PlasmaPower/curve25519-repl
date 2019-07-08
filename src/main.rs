@@ -32,7 +32,7 @@ fn main() {
         let readline = rl.readline("> ");
         match readline {
             Ok(line) => {
-                rl.add_history_entry(line.as_ref());
+                rl.add_history_entry(line.as_str());
                 let res =
                     (parser::expression(), combine::eof()).easy_parse(State::new(line.as_str()));
                 match res {
