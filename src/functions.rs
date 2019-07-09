@@ -565,10 +565,16 @@ pub fn ed25519_pub(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     }
 }
 
-pub fn ed25519_sign(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+fn ed25519_sign_inner<R: CryptoRng + Rng>(
+    mut args: Vec<Value>,
+    extended: bool,
+    rng: &mut R,
+    name: &str,
+) -> Result<Value, Cow<'static, str>> {
     if args.len() < 2 || args.len() > 3 {
         return Err(format!(
-            "ed25519_sign takes 2 or 3 arguments, but {} were provided",
+            "{} takes 2 or 3 arguments, but {} were provided",
+            name,
             args.len(),
         )
         .into());
@@ -577,13 +583,37 @@ pub fn ed25519_sign(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     if args.len() == 3 {
         match args.pop().unwrap() {
             Value::String(s) => hasher = s.into(),
-            val => return Err(format!("{} passed to ed25519_sign as hasher", val).into()),
+            val => return Err(format!("{} passed to {} as hasher", val, name).into()),
         }
     }
     let message = with_bytes(args.pop().unwrap(), |b| b.into_owned())?;
-    let extsk = match args.pop().unwrap() {
-        Value::Bytes(bytes) => ed25519_extsk_inner(&hasher, &bytes, "ed25519_sign")?,
-        val => return Err(format!("{} passed to ed25519_sign as secret key", val).into()),
+    let extsk = if extended {
+        let arg = args.pop().unwrap();
+        let mut extsk = match arg {
+            Value::Bytes(bytes) => {
+                if bytes.len() != 32 && bytes.len() != 64 {
+                    return Err(format!(
+                        "{} bytes passed to {} as extended secret key (expected 32 or 64 bytes)",
+                        bytes.len(),
+                        name,
+                    )
+                    .into());
+                }
+                bytes
+            }
+            Value::Scalar(scalar) => scalar.to_bytes().to_vec(),
+            val => return Err(format!("{} passed to {} as extended secret key", val, name).into()),
+        };
+        if extsk.len() < 64 {
+            extsk.resize_with(64, Default::default);
+            rng.fill(&mut extsk[32..]);
+        }
+        extsk
+    } else {
+        match args.pop().unwrap() {
+            Value::Bytes(bytes) => ed25519_extsk_inner(&hasher, &bytes, name)?,
+            val => return Err(format!("{} passed to {} as secret key", val, name).into()),
+        }
     };
     let mut skey_scalar_bytes = [0u8; 32];
     skey_scalar_bytes.copy_from_slice(&extsk[..32]);
@@ -607,6 +637,20 @@ pub fn ed25519_sign(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     sig[..32].copy_from_slice(&r_point_bytes);
     sig[32..].copy_from_slice(s_value.as_bytes());
     Ok(Value::Bytes(sig))
+}
+
+pub fn ed25519_sign<R: CryptoRng + Rng>(
+    args: Vec<Value>,
+    rng: &mut R,
+) -> Result<Value, Cow<'static, str>> {
+    ed25519_sign_inner(args, false, rng, "ed25519_sign")
+}
+
+pub fn ed25519_sign_extended<R: CryptoRng + Rng>(
+    args: Vec<Value>,
+    rng: &mut R,
+) -> Result<Value, Cow<'static, str>> {
+    ed25519_sign_inner(args, true, rng, "ed25519_sign_extended")
 }
 
 pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
