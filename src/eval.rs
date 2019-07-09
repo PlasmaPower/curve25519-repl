@@ -234,11 +234,14 @@ impl State {
                     "nano_account_decode" => functions::nano_account_decode(params),
                     "ed25519_extsk" => functions::ed25519_extsk(params),
                     "ed25519_pub" => functions::ed25519_pub(params),
-                    "ed25519_sign" => functions::ed25519_sign(params, &mut self.rng),
-                    "ed25519_sign_extended" | "ed25519_sign_scalar" => {
-                        functions::ed25519_sign_extended(params, &mut self.rng)
+                    "ed25519_sign" | "sign" => functions::ed25519_sign(params, &mut self.rng),
+                    "ed25519_sign_extended"
+                    | "ed25519_sign_scalar"
+                    | "sign_extended"
+                    | "sign_scalar" => functions::ed25519_sign_extended(params, &mut self.rng),
+                    "ed25519_verify" | "ed25519_validate" | "verify_sig" => {
+                        functions::ed25519_verify(params)
                     }
-                    "ed25519_verify" | "ed25519_validate" => functions::ed25519_verify(params),
                     _ => Err(format!("unknown function name {}", name).into()),
                 }
             }
