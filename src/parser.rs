@@ -263,11 +263,11 @@ parser! {
                 .map(|x| Expr::NanoBlockHash(x.1)),
             attempt((ident(), lex_char('('), sep_by(expression().map(Box::new), lex_char(',')), lex_char(')'))
                 .map(|x| Expr::FuncCall(x.0, x.2))),
-            attempt((ident(), skip_whitespace(), lex_char('='), expression()).map(|x| Expr::SetVar(x.0, Box::new(x.3)))),
+            (attempt((ident(), skip_whitespace(), lex_char('='))), expression()).map(|x| Expr::SetVar((x.0).0, Box::new(x.1))),
             attempt(ident().map(Expr::Var)),
-            attempt(between(lex_char('('), lex_char(')'), expression())),
-            attempt(between(lex_char('"'), lex_char('"'), many1(none_of(vec!['"']))).map(Expr::String)),
-            attempt((lex_char('-'), expression_(80)).map(|x| Expr::Neg(Box::new(x.1))))
+            between(lex_char('('), lex_char(')'), expression()),
+            between(lex_char('"'), lex_char('"'), many1(none_of(vec!['"']))).map(Expr::String),
+            ((lex_char('-'), expression_(80)).map(|x| Expr::Neg(Box::new(x.1))))
         );
         let pemdas_level = *pemdas_level;
         (skip_whitespace(), ch, skip_whitespace()).then(move |x|
