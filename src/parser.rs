@@ -267,7 +267,7 @@ parser! {
             attempt(ident().map(Expr::Var)),
             attempt(between(lex_char('('), lex_char(')'), expression())),
             attempt(between(lex_char('"'), lex_char('"'), many1(none_of(vec!['"']))).map(Expr::String)),
-            attempt((lex_char('-'), expression()).map(|x| Expr::Neg(Box::new(x.1))))
+            attempt((lex_char('-'), expression_(80)).map(|x| Expr::Neg(Box::new(x.1))))
         );
         let pemdas_level = *pemdas_level;
         (skip_whitespace(), ch, skip_whitespace()).then(move |x|
