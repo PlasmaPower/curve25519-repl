@@ -3,21 +3,26 @@ name = "curve25519-repl"
 version = "0.1.0"
 authors = ["Lee Bousfield <ljbousfield@gmail.com>"]
 license = "BSD-2-Clause"
+edition = "2018"
 
 [dependencies]
 hex = "0.3.2"
 combine = "3.6.1"
-curve25519-dalek = "1.2"
+curve25519-dalek = "2"
 rustyline = "5"
 digest = { version = "0.8.0", features = ["std"] }
-rand = "0.5.5"
+rand = "0.7.2"
 blake2 = { version = "0.8.0", optional = true }
 sha2 = { version = "0.8.0", optional = true }
 sha3 = { version = "0.8.0", optional = true }
 nanocurrency-types = { version = "0.3.17", optional = true }
 serde = "1.0.80"
 serde_json = "1.0.32"
+pairing = { version = "0.15.0", optional = true }
+group = { version = "0.2.0", optional = true }
+ff = { version = "0.5.0", optional = true }
 
 [features]
 nano = ["nanocurrency-types", "blake2"]
+bls = ["pairing", "group", "ff"]
 default = ["sha2"]

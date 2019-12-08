@@ -1,18 +1,106 @@
+use crate::eval::Value;
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use curve25519_dalek::scalar::Scalar;
 use digest;
 use digest::generic_array::typenum::Unsigned;
 use digest::{FixedOutput, Input, VariableOutput};
-use eval::Value;
 use rand::{CryptoRng, Rng};
 use std::borrow::Cow;
 
+#[cfg(feature = "bls")]
+use ff::*;
+#[cfg(feature = "bls")]
+use group::*;
+#[cfg(feature = "bls")]
+use pairing::{bls12_381, Engine};
+#[cfg(feature = "bls")]
+use std::{
+    convert::{AsMut, AsRef},
+    io,
+};
+
+#[cfg(feature = "bls")]
+fn append_repr_to_bytes<T: PrimeFieldRepr>(bytes: &mut Vec<u8>, repr: T) {
+    repr.write_be(bytes)
+        .expect("Failed to write repr bytes to vec");
+}
+
+#[cfg(feature = "bls")]
+pub fn fr_to_bytes(fr: bls12_381::Fr) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    append_repr_to_bytes(&mut bytes, bls12_381::FrRepr::from(fr));
+    bytes
+}
+
+#[cfg(feature = "bls")]
+fn append_fq2_to_bytes(bytes: &mut Vec<u8>, fq: bls12_381::Fq2) {
+    append_repr_to_bytes(bytes, bls12_381::FqRepr::from(fq.c1));
+    append_repr_to_bytes(bytes, bls12_381::FqRepr::from(fq.c0));
+}
+
+#[cfg(feature = "bls")]
+fn append_fq6_to_bytes(bytes: &mut Vec<u8>, fq: bls12_381::Fq6) {
+    append_fq2_to_bytes(bytes, fq.c2);
+    append_fq2_to_bytes(bytes, fq.c1);
+    append_fq2_to_bytes(bytes, fq.c0);
+}
+
+#[cfg(feature = "bls")]
+pub fn fq12_to_bytes(fq: bls12_381::Fq12) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    append_fq6_to_bytes(&mut bytes, fq.c1);
+    append_fq6_to_bytes(&mut bytes, fq.c0);
+    bytes
+}
+
+#[cfg(feature = "bls")]
+fn read_fq_from_bytes<R: io::Read>(r: R) -> Result<bls12_381::Fq, Cow<'static, str>> {
+    let mut repr = bls12_381::FqRepr::default();
+    repr.read_be(r)
+        .map_err(|_| "not enough bytes to read scalar")?;
+    Ok(bls12_381::Fq::from_repr(repr).map_err(|e| e.to_string())?)
+}
+
+#[cfg(feature = "bls")]
+fn read_fq2_from_bytes<R: io::Read>(mut r: R) -> Result<bls12_381::Fq2, Cow<'static, str>> {
+    let c1 = read_fq_from_bytes(&mut r)?;
+    let c0 = read_fq_from_bytes(&mut r)?;
+    Ok(bls12_381::Fq2 { c0, c1 })
+}
+
+#[cfg(feature = "bls")]
+fn read_fq6_from_bytes<R: io::Read>(mut r: R) -> Result<bls12_381::Fq6, Cow<'static, str>> {
+    let c2 = read_fq2_from_bytes(&mut r)?;
+    let c1 = read_fq2_from_bytes(&mut r)?;
+    let c0 = read_fq2_from_bytes(&mut r)?;
+    Ok(bls12_381::Fq6 { c0, c1, c2 })
+}
+
+#[cfg(feature = "bls")]
+fn read_fq12_from_bytes<R: io::Read>(mut r: R) -> Result<bls12_381::Fq12, Cow<'static, str>> {
+    let c1 = read_fq6_from_bytes(&mut r)?;
+    let c0 = read_fq6_from_bytes(&mut r)?;
+    Ok(bls12_381::Fq12 { c0, c1 })
+}
+
 pub fn num_to_scalar(num: i64) -> Scalar {
-    let positive = if num.is_negative() { -num } else { num };
+    let positive = num.abs();
     let mut scalar = Scalar::from(positive as u64);
     if num.is_negative() {
         scalar = -scalar;
+    }
+    scalar
+}
+
+#[cfg(feature = "bls")]
+pub fn num_to_bls_scalar(num: i64) -> bls12_381::Fr {
+    let positive = num.abs();
+    let repr = bls12_381::FrRepr::from(positive as u64);
+    let mut scalar = bls12_381::Fr::from_repr(repr)
+        .expect("64 bit number not in prime field (shouldn't happen)");
+    if num.is_negative() {
+        scalar.negate();
     }
     scalar
 }
@@ -25,6 +113,18 @@ fn with_bytes<R, F: FnOnce(Cow<'_, [u8]>) -> R>(
         Value::Scalar(s) => Ok(f(Cow::Borrowed(s.as_bytes()))),
         Value::Point(p) => Ok(f(Cow::Borrowed(p.compress().as_bytes()))),
         Value::Bytes(b) => Ok(f(Cow::Owned(b))),
+        #[cfg(feature = "bls")]
+        Value::Fr(s) => Ok(f(Cow::Owned(fr_to_bytes(s)))),
+        #[cfg(feature = "bls")]
+        Value::Fq12(s) => Ok(f(Cow::Owned(fq12_to_bytes(s)))),
+        #[cfg(feature = "bls")]
+        Value::G1(p) => Ok(f(Cow::Borrowed(
+            &p.clone().into_affine().into_compressed().as_ref(),
+        ))),
+        #[cfg(feature = "bls")]
+        Value::G2(p) => Ok(f(Cow::Borrowed(
+            &p.clone().into_affine().into_compressed().as_ref(),
+        ))),
         Value::String(b) => Ok(f(Cow::Owned(b.into_bytes()))),
         arg => Err(format!("tried to convert {} into bytes", arg.type_name()).into()),
     }
@@ -56,7 +156,7 @@ pub fn scalar(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
             } else {
                 return Err(format!(
                     "tried to convert {} bytes into a scalar (needs 32 or 64 bytes)",
-                    b.len()
+                    b.len(),
                 )
                 .into());
             }
@@ -70,7 +170,6 @@ pub fn point(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
         return Err(format!("point takes 1 argument, but {} provided", args.len()).into());
     }
     match args.pop().unwrap() {
-        Value::Number(n) => Ok(Value::Point(&num_to_scalar(n) * &ED25519_BASEPOINT_TABLE)),
         Value::Scalar(s) => Ok(Value::Point(&s * &ED25519_BASEPOINT_TABLE)),
         Value::Point(p) => Ok(Value::Point(p)),
         Value::Bytes(b) => {
@@ -180,10 +279,27 @@ pub fn rand<R: CryptoRng + Rng>(
         )
         .into());
     }
-    let len = args
-        .pop()
-        .map(|v| val_to_len(v, "rand"))
-        .unwrap_or(Ok(32))?;
+    let len = match args.pop() {
+        Some(Value::String(s)) => match s.as_str() {
+            "scalar" => return Ok(Value::Scalar(Scalar::random(rng))),
+            "point" => {
+                return Ok(Value::Point(
+                    &Scalar::random(rng) * &ED25519_BASEPOINT_TABLE,
+                ))
+            }
+            #[cfg(feature = "bls")]
+            "bls_scalar" => return Ok(Value::Fr(bls12_381::Fr::random(rng))),
+            #[cfg(feature = "bls")]
+            "pairing" => return Ok(Value::Fq12(bls12_381::Fq12::random(rng))),
+            #[cfg(feature = "bls")]
+            "g1" => return Ok(Value::G1(bls12_381::G1::random(rng))),
+            #[cfg(feature = "bls")]
+            "g2" => return Ok(Value::G2(bls12_381::G2::random(rng))),
+            _ => return Err("cannot generate that type randomly".into()),
+        },
+        Some(v) => val_to_len(v, "rand")?,
+        None => 32,
+    };
     let mut bytes = vec![0u8; len];
     rng.fill(bytes.as_mut_slice());
     Ok(Value::Bytes(bytes))
@@ -203,6 +319,18 @@ pub fn equal_inner(a: Value, b: Value) -> Result<bool, Cow<'static, str>> {
         (Value::Scalar(a), Value::Number(b)) => Ok(a == num_to_scalar(b)),
         (Value::String(a), Value::String(b)) => Ok(a == b),
         (Value::Bool(a), Value::Bool(b)) => Ok(a == b),
+        #[cfg(feature = "bls")]
+        (Value::G1(a), Value::G1(b)) => Ok(a == b),
+        #[cfg(feature = "bls")]
+        (Value::G2(a), Value::G2(b)) => Ok(a == b),
+        #[cfg(feature = "bls")]
+        (Value::Fr(a), Value::Fr(b)) => Ok(a == b),
+        #[cfg(feature = "bls")]
+        (Value::Fq12(a), Value::Fq12(b)) => Ok(a == b),
+        #[cfg(feature = "bls")]
+        (Value::Number(a), Value::Fr(b)) => Ok(num_to_bls_scalar(a) == b),
+        #[cfg(feature = "bls")]
+        (Value::Fr(a), Value::Number(b)) => Ok(a == num_to_bls_scalar(b)),
         (a, b) => Err(format!(
             "attempted to check equality of {} and {}",
             a.type_name(),
@@ -680,7 +808,7 @@ pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> 
         .into());
     }
     let message = with_bytes(args.pop().unwrap(), |b| b.into_owned())?;
-    let (pkey_bytes, pkey_point) = match args.pop().unwrap() {
+    let (pkey_bytes, pkey_point): ([u8; 32], _) = match args.pop().unwrap() {
         Value::Bytes(bytes) => {
             if bytes.len() != 32 {
                 return Err(format!(
@@ -718,4 +846,127 @@ pub fn ed25519_verify(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> 
     Ok(Value::Bool(
         &s_value_scalar * &ED25519_BASEPOINT_TABLE == r_value_point + hram_scalar * pkey_point,
     ))
+}
+
+#[cfg(feature = "bls")]
+pub fn bls_scalar(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    if args.len() != 1 {
+        return Err(format!("scalar takes 1 argument, but {} provided", args.len()).into());
+    }
+    match args.pop().unwrap() {
+        Value::Fr(s) => Ok(Value::Fr(s)),
+        Value::Number(num) => Ok(Value::Fr(num_to_bls_scalar(num))),
+        Value::Bytes(b) => {
+            let mut repr = bls12_381::FrRepr::default();
+            repr.read_be(io::Cursor::new(b))
+                .map_err(|e| e.to_string())?;
+            let scalar = bls12_381::Fr::from_repr(repr).map_err(|_| "bytes not in prime field")?;
+            Ok(Value::Fr(scalar))
+        }
+        arg => Err(format!("tried to convert {} into a BLS scalar", arg.type_name()).into()),
+    }
+}
+
+#[cfg(not(feature = "bls"))]
+pub fn bls_scalar(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("bls support not enabled in features".into())
+}
+
+#[cfg(feature = "bls")]
+pub fn g1(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    if args.len() != 1 {
+        return Err(format!("g1 takes 1 argument, but {} provided", args.len()).into());
+    }
+    match args.pop().unwrap() {
+        Value::G1(p) => Ok(Value::G1(p)),
+        Value::Fr(s) => Ok(Value::G1(bls12_381::G1Affine::one().mul(s))),
+        Value::Bytes(b) => {
+            let mut compressed = bls12_381::G1Compressed::empty();
+            let compressed_bytes = compressed.as_mut();
+            if compressed_bytes.len() != b.len() {
+                return Err(format!(
+                    "tried to convert {} bytes into a BLS G1 point (needs {} bytes)",
+                    compressed_bytes.len(), // 48
+                    b.len(),
+                )
+                .into());
+            }
+            compressed_bytes.copy_from_slice(&b);
+            let affine = compressed.into_affine().map_err(|e| e.to_string())?;
+            Ok(Value::G1(affine.into_projective()))
+        }
+        arg => Err(format!("tried to convert {} into a BLS G1 point", arg.type_name()).into()),
+    }
+}
+
+#[cfg(not(feature = "bls"))]
+pub fn g1(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("bls support not enabled in features".into())
+}
+
+#[cfg(feature = "bls")]
+pub fn g2(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    if args.len() != 1 {
+        return Err(format!("g2 takes 1 argument, but {} provided", args.len()).into());
+    }
+    match args.pop().unwrap() {
+        Value::G2(p) => Ok(Value::G2(p)),
+        Value::Fr(s) => Ok(Value::G2(bls12_381::G2Affine::one().mul(s))),
+        Value::Bytes(b) => {
+            let mut compressed = bls12_381::G2Compressed::empty();
+            let compressed_bytes = compressed.as_mut();
+            if compressed_bytes.len() != b.len() {
+                return Err(format!(
+                    "tried to convert {} bytes into a BLS G2 point (needs {} bytes)",
+                    compressed_bytes.len(), // 96
+                    b.len(),
+                )
+                .into());
+            }
+            compressed_bytes.copy_from_slice(&b);
+            let affine = compressed.into_affine().map_err(|e| e.to_string())?;
+            Ok(Value::G2(affine.into_projective()))
+        }
+        arg => Err(format!("tried to convert {} into a BLS G2 point", arg.type_name()).into()),
+    }
+}
+
+#[cfg(not(feature = "bls"))]
+pub fn g2(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("bls support not enabled in features".into())
+}
+
+#[cfg(feature = "bls")]
+pub fn pairing(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    if args.len() == 1 {
+        match args.pop().unwrap() {
+            Value::Fq12(s) => Ok(Value::Fq12(s)),
+            Value::Bytes(b) => Ok(Value::Fq12(read_fq12_from_bytes(io::Cursor::new(b))?)),
+            arg => Err(format!("tried to convert {} into a BLS pairing", arg.type_name()).into()),
+        }
+    } else if args.len() == 2 {
+        let a = args.pop().unwrap();
+        let b = args.pop().unwrap();
+        match (a, b) {
+            (Value::G1(g1), Value::G2(g2)) | (Value::G2(g2), Value::G1(g1)) => {
+                Ok(Value::Fq12(bls12_381::Bls12::pairing(g1, g2)))
+            }
+            (a, b) => Err(format!(
+                concat!(
+                    "cannot find pairing between {} and {}",
+                    " (expected a BLS G1 point and a BLS G2 point)",
+                ),
+                a.type_name(),
+                b.type_name(),
+            )
+            .into()),
+        }
+    } else {
+        return Err(format!("g2 takes 1 or 2 arguments, but {} provided", args.len()).into());
+    }
+}
+
+#[cfg(not(feature = "bls"))]
+pub fn pairing(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("bls support not enabled in features".into())
 }

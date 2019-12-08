@@ -1,5 +1,4 @@
 use combine::*;
-use hex;
 use serde::de::Deserialize;
 use serde_json;
 use std::collections::VecDeque;

@@ -1,22 +1,5 @@
 #![recursion_limit = "1024"]
 
-#[cfg(feature = "blake2")]
-extern crate blake2;
-extern crate combine;
-extern crate curve25519_dalek;
-extern crate digest;
-extern crate hex;
-#[cfg(feature = "nano")]
-extern crate nanocurrency_types;
-extern crate rand;
-extern crate rustyline;
-extern crate serde;
-extern crate serde_json;
-#[cfg(feature = "sha2")]
-extern crate sha2;
-#[cfg(feature = "sha3")]
-extern crate sha3;
-
 mod eval;
 mod functions;
 mod parser;
