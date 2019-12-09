@@ -886,8 +886,8 @@ pub fn g1(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
             if compressed_bytes.len() != b.len() {
                 return Err(format!(
                     "tried to convert {} bytes into a BLS G1 point (needs {} bytes)",
-                    compressed_bytes.len(), // 48
                     b.len(),
+                    compressed_bytes.len(), // 48
                 )
                 .into());
             }
@@ -918,8 +918,8 @@ pub fn g2(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
             if compressed_bytes.len() != b.len() {
                 return Err(format!(
                     "tried to convert {} bytes into a BLS G2 point (needs {} bytes)",
-                    compressed_bytes.len(), // 96
                     b.len(),
+                    compressed_bytes.len(), // 96
                 )
                 .into());
             }
