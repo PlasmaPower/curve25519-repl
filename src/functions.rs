@@ -858,6 +858,13 @@ pub fn bls_scalar(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
         Value::Number(num) => Ok(Value::Fr(num_to_bls_scalar(num))),
         Value::Bytes(b) => {
             let mut repr = bls12_381::FrRepr::default();
+            if b.len() != 32 {
+                return Err(format!(
+                    "tried to convert {} bytes into a BLS scalar (needs 32 bytes)",
+                    b.len(),
+                )
+                .into());
+            }
             repr.read_be(io::Cursor::new(b))
                 .map_err(|e| e.to_string())?;
             let scalar = bls12_381::Fr::from_repr(repr).map_err(|_| "bytes not in prime field")?;
@@ -941,7 +948,16 @@ pub fn pairing(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     if args.len() == 1 {
         match args.pop().unwrap() {
             Value::Fq12(s) => Ok(Value::Fq12(s)),
-            Value::Bytes(b) => Ok(Value::Fq12(read_fq12_from_bytes(io::Cursor::new(b))?)),
+            Value::Bytes(b) => {
+                if b.len() != 576 {
+                    return Err(format!(
+                        "tried to convert {} bytes into a BLS pairing (needs 576 bytes)",
+                        b.len(),
+                    )
+                    .into());
+                }
+                Ok(Value::Fq12(read_fq12_from_bytes(io::Cursor::new(b))?))
+            }
             arg => Err(format!("tried to convert {} into a BLS pairing", arg.type_name()).into()),
         }
     } else if args.len() == 2 {
