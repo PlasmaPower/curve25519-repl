@@ -7,13 +7,18 @@ See examples/nano/sign-block.txt for an example of this in use (requires `--feat
 
 ### bytes
 
-`bytes(in: scalar | point | string | bytes) -> bytes`
+```
+bytes(
+    in: scalar | point | string | bytes |
+        bls_scalar | g1 | g2 | pairing
+) -> bytes
+```
 
-Converts its argument to bytes.
+Converts or serializes its argument to bytes.
 
 ### scalar
 
-`scalar(in: bytes | scalar) -> scalar`
+`scalar(in: bytes | number | scalar) -> scalar`
 
 Converts its argument to a scalar.
 
@@ -133,6 +138,35 @@ Returns 64 bytes.
 Checks if an ed25519 signature is valid.
 The default hasher is sha2.
 Returns true if the signature is valid, and false otherwise.
+
+### bls_scalar
+
+`bls_scalar(in: bytes | number | scalar) -> bls_scalar`
+
+Converts its argument to a BLS scalar.
+Requires the bls feature.
+
+### g1
+
+`g1(in: bytes | g1) -> point`
+
+Converts 48 bytes to a BLS G1 point.
+Requires the bls feature.
+
+### g2
+
+`g2(in: bytes | g2) -> point`
+
+Converts 48 bytes to a BLS G2 point.
+Requires the bls feature.
+
+### pairing
+
+`pairing(in: g1 | g2 | bytes | pairing, in2?: g1 | g2)`
+
+Either deserializes 576 bytes to a pairing scalar,
+or returns the pairing between a g1 point and a g2 point.
+Requires the bls feature.
 
 ### nano_block_hash!
 
