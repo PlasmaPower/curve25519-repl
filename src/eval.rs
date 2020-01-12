@@ -353,8 +353,14 @@ impl State {
             .insert("B".into(), Value::Point(ED25519_BASEPOINT));
         #[cfg(feature = "bls")]
         {
-            self.vars.insert("G1".into(), Value::G1(bls12_381::G1Affine::one().into_projective()));
-            self.vars.insert("G2".into(), Value::G2(bls12_381::G2Affine::one().into_projective()));
+            self.vars.insert(
+                "G1".into(),
+                Value::G1(bls12_381::G1Affine::one().into_projective()),
+            );
+            self.vars.insert(
+                "G2".into(),
+                Value::G2(bls12_381::G2Affine::one().into_projective()),
+            );
         }
     }
 
