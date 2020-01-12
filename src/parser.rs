@@ -265,7 +265,7 @@ parser! {
             (attempt((ident(), skip_whitespace(), lex_char('='))), expression()).map(|x| Expr::SetVar((x.0).0, Box::new(x.1))),
             attempt(ident().map(Expr::Var)),
             between(lex_char('('), lex_char(')'), expression()),
-            between(lex_char('"'), lex_char('"'), many1(none_of(vec!['"']))).map(Expr::String),
+            between(lex_char('"'), lex_char('"'), many(none_of(vec!['"']))).map(Expr::String),
             ((lex_char('-'), expression_(80)).map(|x| Expr::Neg(Box::new(x.1))))
         );
         let pemdas_level = *pemdas_level;
