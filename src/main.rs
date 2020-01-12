@@ -14,6 +14,7 @@ fn main() {
     loop {
         let readline = rl.readline("> ");
         match readline {
+            Ok(line) if line.chars().all(|c| c.is_whitespace()) => {}
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 let res =
