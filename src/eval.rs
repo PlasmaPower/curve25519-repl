@@ -383,6 +383,7 @@ impl State {
                     "sha256" => functions::sha256(params),
                     "sha512" => functions::sha512(params),
                     "keccak256" => functions::keccak256(params),
+                    "keccak512" => functions::keccak512(params),
                     "sha3_256" => functions::sha3_256(params),
                     "sha3_512" => functions::sha3_512(params),
                     "nano_account_encode" => functions::nano_account_encode(params),

@@ -435,6 +435,17 @@ pub fn keccak256(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
 }
 
 #[cfg(feature = "sha3")]
+pub fn keccak512(args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    use sha3::Keccak512;
+    fixed_hash::<Keccak512>(args, "keccak512")
+}
+
+#[cfg(not(feature = "sha3"))]
+pub fn keccak512(_: Vec<Value>) -> Result<Value, Cow<'static, str>> {
+    Err("sha3 support not enabled in features".into())
+}
+
+#[cfg(feature = "sha3")]
 pub fn sha3_256(args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
     use sha3::Sha3_256;
     fixed_hash::<Sha3_256>(args, "sha3_256")

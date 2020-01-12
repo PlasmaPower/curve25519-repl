@@ -65,9 +65,18 @@ Produces a 64 byte output.
 `keccak256(message: bytes | scalar | point | string) -> bytes`
 
 Hashes the message using Keccak256
-(NIST submission without padding changes of SHA3-256).
+(NIST submission without padding changes of SHA3).
 Requires the sha3 feature.
 Produces a 32 byte output.
+
+### keccak512
+
+`keccak512(message: bytes | scalar | point | string) -> bytes`
+
+Hashes the message using Keccak512
+(NIST submission without padding changes of SHA3).
+Requires the sha3 feature.
+Produces a 64 byte output.
 
 ### sha3_256
 
