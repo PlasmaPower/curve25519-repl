@@ -131,10 +131,11 @@ fn with_bytes<R, F: FnOnce(Cow<'_, [u8]>) -> R>(
 }
 
 pub fn bytes(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
-    if args.len() != 1 {
-        return Err(format!("bytes takes 1 argument, but {} provided", args.len()).into());
+    match args.len() {
+        0 => Ok(Value::Bytes(Vec::new())),
+        1 => with_bytes(args.pop().unwrap(), |x| Value::Bytes(x.into_owned())),
+        _ => Err(format!("bytes takes 0 or 1 arguments, but {} provided", args.len()).into()),
     }
-    with_bytes(args.pop().unwrap(), |x| Value::Bytes(x.into_owned()))
 }
 
 pub fn scalar(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
