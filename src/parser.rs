@@ -1,6 +1,5 @@
 use combine::*;
 use serde::de::Deserialize;
-use serde_json;
 use std::collections::VecDeque;
 use std::io;
 use std::sync::Arc;
@@ -24,12 +23,16 @@ pub enum Expr {
     // Variables
     Var(String),
     SetVar(String, Box<Expr>),
+    SetIndex(String, usize, Box<Expr>),
     // Arithmetic
     Add(Box<Expr>, Box<Expr>),
     Mul(Box<Expr>, Box<Expr>),
     Div(Box<Expr>, Box<Expr>),
     Sub(Box<Expr>, Box<Expr>),
     Neg(Box<Expr>),
+    BitAnd(Box<Expr>, Box<Expr>),
+    BitXor(Box<Expr>, Box<Expr>),
+    BitOr(Box<Expr>, Box<Expr>),
     // Comparisons
     Eq(Box<Expr>, Box<Expr>),
     Ne(Box<Expr>, Box<Expr>),
@@ -185,9 +188,12 @@ parser! {
         let lhs2 = lhs.clone();
         let lhs3 = lhs.clone();
         let lhs4 = lhs.clone();
+        let lhs5 = lhs.clone();
+        let lhs6 = lhs.clone();
+        let lhs7 = lhs.clone();
         let ch = choice!(
-            require_pemdas(110).then(move |_|
-                (choice!(parser::char::string("=="), parser::char::string("!=")), expression_(100))
+            require_pemdas(200).then(move |_|
+                (choice!(parser::char::string("=="), parser::char::string("!=")), expression_(190))
             ).map(move |x| {
                 if x.0 == "==" {
                     Expr::Eq(Box::new((*lhs1).clone()), Box::new(x.1))
@@ -197,6 +203,12 @@ parser! {
                     unreachable!()
                 }
             }),
+            require_pemdas(130).then(move |_| (lex_char('|'), expression_(120)))
+                .map(move |x| Expr::BitOr(Box::new((*lhs5).clone()), Box::new(x.1))),
+            require_pemdas(120).then(move |_| (lex_char('^'), expression_(110)))
+                .map(move |x| Expr::BitXor(Box::new((*lhs6).clone()), Box::new(x.1))),
+            require_pemdas(110).then(move |_| (lex_char('&'), expression_(100)))
+                .map(move |x| Expr::BitAnd(Box::new((*lhs7).clone()), Box::new(x.1))),
             require_pemdas(100).then(move |_|
                 (choice!(lex_char('+'), lex_char('-')), expression_(90))
             ).map(move |x| {
@@ -229,12 +241,10 @@ parser! {
                 for parts in x {
                     if let Some(slice_parts) = parts.2 {
                         expr = Expr::Slice(Box::new(expr), parts.1, slice_parts.1);
-                    } else {
-                        if let Some(idx) = parts.1 {
+                    } else if let Some(idx) = parts.1 {
                             expr = Expr::Index(Box::new(expr), idx);
-                        } else {
-                            expr = Expr::Slice(Box::new(expr), None, None);
-                        }
+                    } else {
+                        expr = Expr::Slice(Box::new(expr), None, None);
                     }
                 }
                 expr
@@ -262,7 +272,41 @@ parser! {
                 .map(|x| Expr::NanoBlockHash(x.1)),
             attempt((ident(), lex_char('('), sep_by(expression().map(Box::new), lex_char(',')), lex_char(')'))
                 .map(|x| Expr::FuncCall(x.0, x.2))),
-            (attempt((ident(), skip_whitespace(), lex_char('='))), expression()).map(|x| Expr::SetVar((x.0).0, Box::new(x.1))),
+            (attempt((
+                ident(),
+                optional((lex_char('['), from_str::<_, usize>(), lex_char(']'))),
+                skip_whitespace(),
+                optional(choice!(
+                    lex_char('+'), lex_char('-'), lex_char('*'),
+                    lex_char('/'), lex_char('&'), lex_char('^'),
+                    lex_char('|')
+                )),
+                lex_char('=')
+            )), expression())
+                .map(|x| {
+                    let lval = if let Some(index) = (x.0).1 {
+                        Expr::Index(Box::new(Expr::Var((x.0).0.clone())), index.1)
+                    } else {
+                        Expr::Var((x.0).0.clone())
+                    };
+                    let rval = x.1;
+                    let new_val = match (x.0).3 {
+                        None => rval,
+                        Some('+') => Expr::Add(Box::new(lval), Box::new(rval)),
+                        Some('-') => Expr::Sub(Box::new(lval), Box::new(rval)),
+                        Some('*') => Expr::Mul(Box::new(lval), Box::new(rval)),
+                        Some('/') => Expr::Div(Box::new(lval), Box::new(rval)),
+                        Some('&') => Expr::BitAnd(Box::new(lval), Box::new(rval)),
+                        Some('^') => Expr::BitXor(Box::new(lval), Box::new(rval)),
+                        Some('|') => Expr::BitOr(Box::new(lval), Box::new(rval)),
+                        _ => unreachable!(),
+                    };
+                    if let Some(index) = (x.0).1 {
+                        Expr::SetIndex((x.0).0.clone(), index.1, Box::new(new_val))
+                    } else {
+                        Expr::SetVar((x.0).0.clone(), Box::new(new_val))
+                    }
+                }),
             attempt(ident().map(Expr::Var)),
             between(lex_char('('), lex_char(')'), expression()),
             between(lex_char('"'), lex_char('"'), many(none_of(vec!['"']))).map(Expr::String),

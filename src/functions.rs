@@ -2,7 +2,6 @@ use crate::eval::Value;
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use curve25519_dalek::scalar::Scalar;
-use digest;
 use digest::generic_array::typenum::Unsigned;
 use digest::{FixedOutput, Input, VariableOutput};
 use rand::{CryptoRng, Rng};
@@ -155,11 +154,11 @@ pub fn scalar(mut args: Vec<Value>) -> Result<Value, Cow<'static, str>> {
                 slice.copy_from_slice(&b);
                 Ok(Value::Scalar(Scalar::from_bytes_mod_order_wide(&slice)))
             } else {
-                return Err(format!(
+                Err(format!(
                     "tried to convert {} bytes into a scalar (needs 32 or 64 bytes)",
                     b.len(),
                 )
-                .into());
+                .into())
             }
         }
         arg => Err(format!("tried to convert {} into a scalar", arg.type_name()).into()),
@@ -201,7 +200,7 @@ pub fn val_to_len(val: Value, func_name: &str) -> Result<usize, Cow<'static, str
                 Err(format!("bad length {} passed to {}", num, func_name).into())
             }
         }
-        val => return Err(format!("{} passed as length to {}", val.type_name(), func_name).into()),
+        val => Err(format!("{} passed as length to {}", val.type_name(), func_name).into()),
     }
 }
 
@@ -265,7 +264,7 @@ pub fn index(val: Value, idx: usize) -> Result<Value, Cow<'static, str>> {
             }
             Ok(a[idx].clone())
         }
-        arg => return Err(format!("attempted to slice {}", arg.type_name()).into()),
+        arg => Err(format!("attempted to slice {}", arg.type_name()).into()),
     }
 }
 

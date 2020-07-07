@@ -4,12 +4,13 @@ use curve25519_dalek::constants::ED25519_BASEPOINT_POINT as ED25519_BASEPOINT;
 use curve25519_dalek::constants::EIGHT_TORSION;
 use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::scalar::Scalar;
-use hex;
 use rand::rngs::OsRng;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::mem;
+use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Sub};
 
 #[cfg(feature = "bls")]
 use ff::*;
@@ -326,6 +327,81 @@ impl Neg for Value {
     }
 }
 
+impl BitAnd for Value {
+    type Output = Result<Value, Cow<'static, str>>;
+
+    fn bitand(self, rhs: Value) -> Self::Output {
+        match (self, rhs) {
+            (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a & b)),
+            (Value::Bytes(mut a), Value::Bytes(mut b)) => {
+                if b.len() > a.len() {
+                    mem::swap(&mut a, &mut b);
+                }
+                for (a, b) in a.iter_mut().zip(b.iter_mut()) {
+                    *a &= *b;
+                }
+                Ok(Value::Bytes(a))
+            }
+            (a, b) => Err(format!(
+                "attempted to bit and {} and {}",
+                a.type_name(),
+                b.type_name(),
+            )
+            .into()),
+        }
+    }
+}
+
+impl BitXor for Value {
+    type Output = Result<Value, Cow<'static, str>>;
+
+    fn bitxor(self, rhs: Value) -> Self::Output {
+        match (self, rhs) {
+            (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a ^ b)),
+            (Value::Bytes(mut a), Value::Bytes(mut b)) => {
+                if b.len() > a.len() {
+                    mem::swap(&mut a, &mut b);
+                }
+                for (a, b) in a.iter_mut().zip(b.iter_mut()) {
+                    *a ^= *b;
+                }
+                Ok(Value::Bytes(a))
+            }
+            (a, b) => Err(format!(
+                "attempted to bit xor {} and {}",
+                a.type_name(),
+                b.type_name(),
+            )
+            .into()),
+        }
+    }
+}
+
+impl BitOr for Value {
+    type Output = Result<Value, Cow<'static, str>>;
+
+    fn bitor(self, rhs: Value) -> Self::Output {
+        match (self, rhs) {
+            (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a | b)),
+            (Value::Bytes(mut a), Value::Bytes(mut b)) => {
+                if b.len() > a.len() {
+                    mem::swap(&mut a, &mut b);
+                }
+                for (a, b) in a.iter_mut().zip(b.iter_mut()) {
+                    *a |= *b;
+                }
+                Ok(Value::Bytes(a))
+            }
+            (a, b) => Err(format!(
+                "attempted to bit or {} and {}",
+                a.type_name(),
+                b.type_name(),
+            )
+            .into()),
+        }
+    }
+}
+
 pub struct State {
     vars: HashMap<String, Value>,
     rng: OsRng,
@@ -420,10 +496,55 @@ impl State {
                 self.vars.insert(name, val.clone());
                 Ok(val)
             }
+            Expr::SetIndex(name, index, val) => {
+                let val = self.eval(*val)?;
+                let array = self
+                    .vars
+                    .get_mut(&name)
+                    .ok_or_else(|| format!("no such variable {}", name))?;
+                match array {
+                    Value::Array(v) => {
+                        if v.len() <= index {
+                            return Err(format!(
+                                "index {} is out of bounds for array {}",
+                                index, name,
+                            )
+                            .into());
+                        }
+                        v[index] = val.clone();
+                    }
+                    Value::Bytes(v) => {
+                        if v.len() <= index {
+                            return Err(format!(
+                                "index {} is out of bounds for array {}",
+                                index, name,
+                            )
+                            .into());
+                        }
+                        let val = match val {
+                            Value::Number(x) => u8::try_from(x)
+                                .map_err(|_| format!("{} is out of bounds for a byte array", x))?,
+                            _ => {
+                                return Err(format!(
+                                    "attemped to set a byte array index to {}",
+                                    val.type_name(),
+                                )
+                                .into())
+                            }
+                        };
+                        v[index] = val.clone();
+                    }
+                    _ => return Err(format!("{} is not an array", name).into()),
+                }
+                Ok(val)
+            }
             Expr::Add(a, b) => self.eval(*a)? + self.eval(*b)?,
             Expr::Sub(a, b) => self.eval(*a)? - self.eval(*b)?,
             Expr::Mul(a, b) => self.eval(*a)? * self.eval(*b)?,
             Expr::Div(a, b) => self.eval(*a)? / self.eval(*b)?,
+            Expr::BitAnd(a, b) => self.eval(*a)? & self.eval(*b)?,
+            Expr::BitOr(a, b) => self.eval(*a)? | self.eval(*b)?,
+            Expr::BitXor(a, b) => self.eval(*a)? ^ self.eval(*b)?,
             Expr::Neg(val) => {
                 let val = self.eval(*val)?;
                 -val
